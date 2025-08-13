@@ -1,6 +1,7 @@
 // Runs before every request. Allows public paths; otherwise requires a valid session cookie.
 const PUBLIC = new Set([
   "/gate.html",
+  "/gate",
   "/api/login",
   "/favicon.ico",
   // Add any additional public assets here if needed

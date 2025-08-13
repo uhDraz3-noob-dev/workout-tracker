@@ -158,3 +158,6 @@ h1,h2{margin:0 0 10px}
   background:#0b1220; color:#e5e7eb; border:1px solid #1e293b;
   border-radius:10px; padding:12px 14px; min-width:240px;
 }
+
+body[data-locked="1"] #app-root { filter: blur(4px); pointer-events:none; user-select:none; }
+

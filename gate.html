@@ -1,48 +1,146 @@
 <!doctype html>
-<html>
+<html lang="en">
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
   <title>Enter PIN</title>
   <style>
-    html,body{height:100%;margin:0}
-    body{display:flex;align-items:center;justify-content:center;background:#000;color:#fff;font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
-    .box{display:grid;gap:10px;width:min(92vw,360px)}
-    input,button{padding:12px;border-radius:12px;border:1px solid #333;background:#111;color:#fff;font-size:16px}
-    button{border:0;background:#4f46e5;font-weight:600;cursor:pointer}
-    .msg{min-height:1.2em;color:#f87171}
+    :root{
+      --bg:#0b0f16;          
+      --panel:#0f1624;
+      --text:#e6edf3;
+      --muted:#7a8799;
+      --accent:#00ff7f;      /* green terminal accent */
+      --accent-dim:#008f4f;
+      --padX:14px;
+    }
+
+    @font-face{ font-family: system-mono; src: local("Fira Code"), local("JetBrains Mono"),
+                local("Ubuntu Mono"), local("DejaVu Sans Mono"); }
+    html,body{ height:100%; margin:0; background:var(--bg); color:var(--text);
+               font-family: system-mono, ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", "DejaVu Sans Mono", monospace; }
+
+    body::before{
+      content:""; position:fixed; inset:0; pointer-events:none;
+      background:
+        radial-gradient(1200px 600px at 70% -20%, rgba(0,255,127,.06), transparent 60%),
+        radial-gradient(900px 500px at -10% 100%, rgba(0,255,127,.05), transparent 60%),
+        linear-gradient(transparent 40%, rgba(0,0,0,.25));
+      mix-blend-mode:screen;
+    }
+
+    .wrap{ min-height:100%; display:flex; align-items:center; justify-content:center; padding:32px; }
+    .card{
+      width:min(92vw,560px);
+      background:linear-gradient(180deg, rgba(255,255,255,.02), rgba(255,255,255,.00));
+      border:1px solid rgba(0,255,127,.15);
+      border-radius:16px;
+      box-shadow:0 10px 30px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.05);
+      padding:28px 26px 24px;
+    }
+    .brand{ display:flex; gap:10px; align-items:center; color:var(--muted);
+            letter-spacing:.08em; text-transform:uppercase; font-size:12px; }
+    .brand .dot{ width:7px; height:7px; border-radius:50%; background:var(--accent); box-shadow:0 0 12px var(--accent); }
+    .title{ margin:10px 0 18px; font-size:28px; letter-spacing:.08em; text-shadow:0 0 18px rgba(0,255,127,.18); }
+
+    .row{ display:grid; grid-template-columns:auto 1fr auto; gap:10px; align-items:center; }
+
+    /* Terminal prompt */
+    .sig{ color:var(--accent); user-select:none; padding:12px 0; }
+    .field{ position:relative; background:var(--panel); border:1px solid rgba(0,255,127,.2);
+            border-radius:12px; padding:0; display:flex; align-items:center; justify-content:center; }
+    .input{
+      width:100%; background:transparent; border:0; outline:none;
+      color:var(--text); font-size:18px; letter-spacing:.12em;
+      padding:12px var(--padX);
+      caret-color:transparent; text-align:center; /* center text + placeholder */
+    }
+    .input::placeholder{ color:rgba(230,237,243,.35); text-align:center; }
+
+    .caret{
+      position:absolute; top:50%; transform:translateY(-50%);
+      height:1.15em; width:0.6ch; background:var(--accent);
+      left: 1.5ch; /* shifts caret ~1.5 characters right from the left edge */
+      box-shadow:0 0 14px rgba(0,255,127,.45);
+      animation: blink 1.05s steps(1,end) infinite;
+      pointer-events:none;
+    }
+    @keyframes blink { 50% { opacity:.2 } }
+
+    .enter{
+      height:46px; padding:0 18px; border:0;
+      background:linear-gradient(180deg, var(--accent), var(--accent-dim));
+      color:#001018; font-weight:700; letter-spacing:.15em; text-transform:uppercase;
+      border-radius:12px; cursor:pointer;
+      box-shadow:0 0 25px rgba(0,255,127,.35), inset 0 1px 0 rgba(255,255,255,.25);
+      transition:transform .04s ease, filter .2s ease;
+    }
+    .enter:active{ transform:translateY(1px); }
+    .enter:disabled{ filter:grayscale(.6) brightness(.7); cursor:not-allowed; }
+
+    .msg{ min-height:1.2em; margin-top:10px; color:#ff8f8f }
   </style>
 </head>
 <body>
-  <div class="box">
-    <input id="pin" type="password" inputmode="numeric" pattern="[0-9]*" placeholder="PIN" autofocus />
-    <button id="go">Enter</button>
-    <div id="msg" class="msg"></div>
+  <div class="wrap">
+    <div class="card" role="dialog" aria-labelledby="t1">
+      <div class="brand"><span class="dot"></span> secure access</div>
+      <h1 class="title" id="t1">LOGIN</h1>
+
+      <div class="row">
+        <div class="sig">></div>
+        <div class="field">
+          <input id="pin" class="input" type="password" inputmode="numeric" pattern="[0-9]*"
+       autocomplete="off" autofocus />
+          <span id="caret" class="caret" aria-hidden="true"></span>
+        </div>
+        <button id="go" class="enter">ENTER</button>
+      </div>
+
+      <div id="msg" class="msg" aria-live="polite"></div>
+    </div>
   </div>
 
   <script>
-    const go = document.getElementById('go');
-    const pinEl = document.getElementById('pin');
-    const msg = document.getElementById('msg');
+    const pinEl = document.getElementById("pin");
+    const caret = document.getElementById("caret");
+    const goBtn = document.getElementById("go");
+    const msg = document.getElementById("msg");
 
-    async function submit() {
-      const pin = (pinEl.value || '').trim();
-      try {
-        const r = await fetch('/api/login', {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
+    function syncCaret(){
+      const val = pinEl.value || "";
+      // Calculate caret offset from center based on text length
+      const charWidth = pinEl.scrollWidth / (pinEl.value.length || 1);
+      caret.style.setProperty("--offset", ((val.length - 0.5) * charWidth) + "px");
+    }
+    pinEl.addEventListener("input", syncCaret);
+    pinEl.addEventListener("focus", syncCaret);
+    window.addEventListener("load", syncCaret);
+
+    async function submit(){
+      const pin = (pinEl.value||"").trim();
+      if(!pin){ msg.textContent = "Please enter your PIN."; pinEl.focus(); return; }
+      goBtn.disabled = true; msg.textContent = "";
+      try{
+        const r = await fetch("/api/login", {
+          method:"POST",
+          headers:{ "content-type":"application/json" },
           body: JSON.stringify({ pin })
         });
-        if (r.ok) location.href = '/';
-        else msg.textContent = 'Incorrect PIN';
-      } catch {
-        msg.textContent = 'Network error. Try again.';
+        if(r.ok){
+          location.replace("/");
+        }else{
+          msg.textContent = "Incorrect PIN.";
+          goBtn.disabled = false;
+          pinEl.select(); syncCaret();
+        }
+      }catch{
+        msg.textContent = "Network error. Try again.";
+        goBtn.disabled = false;
       }
     }
-
-    go.addEventListener('click', submit);
-    pinEl.addEventListener('keydown', e => { if (e.key === 'Enter') submit(); });
+    goBtn.addEventListener("click", submit);
+    pinEl.addEventListener("keydown", (e)=>{ if(e.key==="Enter") submit(); });
   </script>
 </body>
 </html>
-

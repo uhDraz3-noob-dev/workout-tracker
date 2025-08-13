@@ -4,53 +4,6 @@
    Adds a Builder tab (local “backend”) with Weeks/Days/Sections/Items CRUD
    and migrates your plan to a sections-based model.
    ========================================================= */
-// ===== Simple PIN Gate =====
-const USER_NAME = "Usman";        // <- change if you want
-const PIN_CODE  = "1234";         // <- set your PIN here
-const SESSION_KEY = "tracker.unlocked";
-
-const gateEl   = document.getElementById("gate");
-const appEl    = document.getElementById("app");
-const greetEl  = document.getElementById("greet");
-const welcome  = document.getElementById("welcome");
-const pinInput = document.getElementById("pinInput");
-const pinEnter = document.getElementById("pinEnter");
-const pinMsg   = document.getElementById("pinMsg");
-
-// show/hide based on session
-function showApp(){
-  gateEl.style.display = "none";
-  appEl.style.display  = "flex";
-  greetEl.textContent  = `welcome ${USER_NAME}, What would you like to do today`;
-  welcome.style.display = "block";
-}
-
-// try auto-unlock if saved
-if (localStorage.getItem(SESSION_KEY) === "1") {
-  showApp();
-} else {
-  gateEl.style.display = "flex";
-}
-
-// handle PIN submit
-function tryUnlock(){
-  const v = (pinInput.value || "").trim();
-  if (v === PIN_CODE) {
-    localStorage.setItem(SESSION_KEY, "1");
-    showApp();
-  } else {
-    pinMsg.textContent = "Incorrect PIN. Try again.";
-  }
-}
-pinEnter?.addEventListener("click", tryUnlock);
-pinInput?.addEventListener("keydown", (e)=>{ if(e.key==="Enter") tryUnlock(); });
-
-// Buttons on welcome screen
-document.getElementById("btnTrack")?.addEventListener("click", ()=>{
-  // if you have a "Today" tab button with data-tab="today", click it:
-  const todayBtn = document.querySelector('.tab[data-tab="today"]');
-  if (todayBtn) todayBtn.click();
-});
 
 /* ---------------- Core helpers ---------------- */
 
@@ -1365,5 +1318,6 @@ function render(){
     }, 120); }, {passive:true});
   });
 })();
+
 
 

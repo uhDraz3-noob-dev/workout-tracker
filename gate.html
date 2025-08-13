@@ -6,11 +6,11 @@
   <title>Enter PIN</title>
   <style>
     :root{
-      --bg:#0b0f16;          
+      --bg:#0b0f16;
       --panel:#0f1624;
       --text:#e6edf3;
       --muted:#7a8799;
-      --accent:#00ff7f;      /* green terminal accent */
+      --accent:#00ff7f;
       --accent-dim:#008f4f;
       --padX:14px;
     }
@@ -47,20 +47,39 @@
 
     /* Terminal prompt */
     .sig{ color:var(--accent); user-select:none; padding:12px 0; }
-    .field{ position:relative; background:var(--panel); border:1px solid rgba(0,255,127,.2);
-            border-radius:12px; padding:0; display:flex; align-items:center; justify-content:center; }
+
+    .field{
+      position:relative;
+      background:var(--panel);
+      border:1px solid rgba(0,255,127,.2);
+      border-radius:12px;
+      padding:0;
+      display:flex; align-items:center; justify-content:center;
+      overflow:hidden;
+    }
+
+    /* IMPORTANT: left-align actual input, hide its text & caret; we'll render bullets ourselves */
     .input{
       width:100%; background:transparent; border:0; outline:none;
-      color:var(--text); font-size:18px; letter-spacing:.12em;
+      font-size:18px; letter-spacing:.12em; color:transparent;   /* hide real glyphs */
       padding:12px var(--padX);
-      caret-color:transparent; text-align:center; /* center text + placeholder */
+      caret-color:transparent; text-align:left;                  /* terminal-like */
     }
+    /* If you ever add a placeholder, keep it centered when empty */
     .input::placeholder{ color:rgba(230,237,243,.35); text-align:center; }
+    .input:placeholder-shown ~ .ghost{ display:none; }           /* hide ghost when empty */
+
+    /* The visible, measured bullets that mirror the input’s value */
+    .ghost{
+      position:absolute; top:50%; left:var(--padX); transform:translateY(-50%);
+      font:inherit; letter-spacing:.12em; white-space:pre; pointer-events:none;
+      color:var(--text);
+    }
 
     .caret{
       position:absolute; top:50%; transform:translateY(-50%);
       height:1.15em; width:0.6ch; background:var(--accent);
-      left: 1.5ch; /* shifts caret ~1.5 characters right from the left edge */
+      left:var(--padX); /* start at padding-left; JS moves it */
       box-shadow:0 0 14px rgba(0,255,127,.45);
       animation: blink 1.05s steps(1,end) infinite;
       pointer-events:none;
@@ -84,14 +103,16 @@
 <body>
   <div class="wrap">
     <div class="card" role="dialog" aria-labelledby="t1">
-      <div class="brand"><span class="dot"></span> secure access</div>
+      <div class="brand"><span class="dot"></span> secure access_Terminal link Active_Build v0.1.2</div>
       <h1 class="title" id="t1">LOGIN</h1>
 
       <div class="row">
         <div class="sig">></div>
         <div class="field">
           <input id="pin" class="input" type="password" inputmode="numeric" pattern="[0-9]*"
-       autocomplete="off" autofocus />
+                 autocomplete="off" autofocus />
+          <!-- NEW: visible bullets we can measure -->
+          <span id="ghost" class="ghost" aria-hidden="true"></span>
           <span id="caret" class="caret" aria-hidden="true"></span>
         </div>
         <button id="go" class="enter">ENTER</button>
@@ -104,18 +125,36 @@
   <script>
     const pinEl = document.getElementById("pin");
     const caret = document.getElementById("caret");
+    const ghost = document.getElementById("ghost");
     const goBtn = document.getElementById("go");
     const msg = document.getElementById("msg");
 
-    function syncCaret(){
+    function placeCaret() {
+      // Mirror bullets in a separate span so we can measure exactly what the user sees.
       const val = pinEl.value || "";
-      // Calculate caret offset from center based on text length
-      const charWidth = pinEl.scrollWidth / (pinEl.value.length || 1);
-      caret.style.setProperty("--offset", ((val.length - 0.5) * charWidth) + "px");
+      ghost.textContent = "•".repeat(val.length);
+
+      const cs = getComputedStyle(pinEl);
+      const padLeft = parseFloat(cs.paddingLeft) || 0;
+      const padRight = parseFloat(cs.paddingRight) || 0;
+
+      // Width of the visible bullets
+      const w = ghost.getBoundingClientRect().width;
+
+      // Keep caret within the content box
+      const maxLeft = pinEl.clientWidth - padRight - caret.offsetWidth;
+      const left = Math.min(padLeft + w, maxLeft);
+
+      caret.style.left = left + "px";
+      caret.style.opacity = (document.activeElement === pinEl) ? "1" : "0";
     }
-    pinEl.addEventListener("input", syncCaret);
-    pinEl.addEventListener("focus", syncCaret);
-    window.addEventListener("load", syncCaret);
+
+    // Keep caret in sync
+    pinEl.addEventListener("input", placeCaret);
+    pinEl.addEventListener("focus", placeCaret);
+    pinEl.addEventListener("blur", placeCaret);
+    window.addEventListener("load", placeCaret);
+    window.addEventListener("resize", placeCaret);
 
     async function submit(){
       const pin = (pinEl.value||"").trim();
@@ -132,7 +171,7 @@
         }else{
           msg.textContent = "Incorrect PIN.";
           goBtn.disabled = false;
-          pinEl.select(); syncCaret();
+          pinEl.select(); placeCaret();
         }
       }catch{
         msg.textContent = "Network error. Try again.";

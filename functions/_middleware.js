@@ -20,6 +20,7 @@ const PUBLIC_PREFIX = [
 ];
 
 export async function onRequest(context) {
+  const DEFAULT_MAX_AGE_MS = 86_400_000; // 24h
   const url = new URL(context.request.url);
   let path = url.pathname;
 

@@ -219,7 +219,7 @@
       if (r.status === 429 && data?.retryAfter) {
         msg.textContent = `Too many attempts. Try again in ${data.retryAfter}s.`;
       } else {
-        msg.textContent = "Invalid PIN.";
+        msg.textContent = "Access Denied";
       }
 
       goBtn.disabled = false;

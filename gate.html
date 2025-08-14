@@ -126,64 +126,98 @@
     </div>
   </div>
 
-  <script>
-    const pinEl = document.getElementById("pin");
-    const caret = document.getElementById("caret");
-    const ghost = document.getElementById("ghost");
-    const goBtn = document.getElementById("go");
-    const msg = document.getElementById("msg");
+<script>
+  const pinEl = document.getElementById("pin");
+  const caret = document.getElementById("caret");
+  const ghost = document.getElementById("ghost");
+  const goBtn = document.getElementById("go");
+  const msg   = document.getElementById("msg");
 
-    function placeCaret() {
-      // Mirror bullets in a separate span so we can measure exactly what the user sees.
-      const val = pinEl.value || "";
-      ghost.textContent = "•".repeat(val.length);
+  // ----- caret sync (keep) -----
+  function placeCaret() {
+    const val = pinEl.value || "";
+    ghost.textContent = "•".repeat(val.length);
 
-      const cs = getComputedStyle(pinEl);
-      const padLeft = parseFloat(cs.paddingLeft) || 0;
-      const padRight = parseFloat(cs.paddingRight) || 0;
+    const cs = getComputedStyle(pinEl);
+    const padLeft = parseFloat(cs.paddingLeft) || 0;
+    const padRight = parseFloat(cs.paddingRight) || 0;
 
-      // Width of the visible bullets
-      const w = ghost.getBoundingClientRect().width;
+    const w = ghost.getBoundingClientRect().width;
+    const maxLeft = pinEl.clientWidth - padRight - caret.offsetWidth;
+    const left = Math.min(padLeft + w, maxLeft);
 
-      // Keep caret within the content box
-      const maxLeft = pinEl.clientWidth - padRight - caret.offsetWidth;
-      const left = Math.min(padLeft + w, maxLeft);
+    caret.style.left = left + "px";
+    caret.style.opacity = (document.activeElement === pinEl) ? "1" : "0";
+  }
+  pinEl.addEventListener("input", placeCaret);
+  pinEl.addEventListener("focus", placeCaret);
+  pinEl.addEventListener("blur", placeCaret);
+  window.addEventListener("load", placeCaret);
+  window.addEventListener("resize", placeCaret);
 
-      caret.style.left = left + "px";
-      caret.style.opacity = (document.activeElement === pinEl) ? "1" : "0";
+  // ----- get Turnstile token when needed -----
+  async function getTurnstileToken() {
+    const widget = document.getElementById("cf-ts");
+    if (!window.turnstile || !widget) return "";
+    if (!window.__tsWidgetId) {
+      window.__tsWidgetId = turnstile.render("#cf-ts", {
+        sitekey: widget.dataset.sitekey,
+        size: "invisible"
+      });
     }
+    turnstile.reset(window.__tsWidgetId);
+    turnstile.execute(window.__tsWidgetId);
+    const start = performance.now();
+    return await new Promise(resolve => {
+      (function check() {
+        const t = turnstile.getResponse(window.__tsWidgetId);
+        if (t) return resolve(t);
+        if (performance.now() - start > 5000) return resolve("");
+        setTimeout(check, 50);
+      })();
+    });
+  }
 
-    // Keep caret in sync
-    pinEl.addEventListener("input", placeCaret);
-    pinEl.addEventListener("focus", placeCaret);
-    pinEl.addEventListener("blur", placeCaret);
-    window.addEventListener("load", placeCaret);
-    window.addEventListener("resize", placeCaret);
+  // ----- submit with rate-limit/backoff awareness -----
+  async function submit(e){
+    if (e) e.preventDefault();
+    const pin = (pinEl.value||"").trim();
+    if(!pin){ msg.textContent = "Please enter your PIN."; pinEl.focus(); return; }
 
-    async function submit(){
-      const pin = (pinEl.value||"").trim();
-      if(!pin){ msg.textContent = "Please enter your PIN."; pinEl.focus(); return; }
-      goBtn.disabled = true; msg.textContent = "";
-      try{
-        const r = await fetch("/api/login", {
-          method:"POST",
-          headers:{ "content-type":"application/json" },
-          body: JSON.stringify({ pin })
-        });
-        if(r.ok){
-          location.replace("/");
-        }else{
-          msg.textContent = "Access Denied.";
-          goBtn.disabled = false;
-          pinEl.select(); placeCaret();
-        }
-      }catch{
-        msg.textContent = "Network error. Try again.";
-        goBtn.disabled = false;
+    goBtn.disabled = true; msg.textContent = "";
+
+    const turnstileToken = await getTurnstileToken();
+
+    try{
+      const r = await fetch("/api/login", {
+        method:"POST",
+        headers:{ "content-type":"application/json" },
+        body: JSON.stringify({ pin, turnstileToken })
+      });
+
+      if(r.ok){ location.replace("/"); return; }
+
+      let data = {};
+      try { data = await r.json(); } catch {}
+      if (r.status === 429 && data?.retryAfter) {
+        msg.textContent = `Too many attempts. Try again in ${data.retryAfter}s.`;
+      } else if (data?.reason === "challenge") {
+        msg.textContent = "Please complete the challenge and try again.";
+      } else {
+        msg.textContent = "Invalid PIN.";
       }
+
+      goBtn.disabled = false;
+      pinEl.select(); placeCaret();
+    } catch {
+      msg.textContent = "Network error. Try again.";
+      goBtn.disabled = false;
     }
-    goBtn.addEventListener("click", submit);
-    pinEl.addEventListener("keydown", (e)=>{ if(e.key==="Enter") submit(); });
-  </script>
+  }
+
+  goBtn.addEventListener("click", submit);
+  pinEl.addEventListener("keydown", (e)=>{ if(e.key==="Enter") submit(e); });
+</script>
+
 </body>
 </html>

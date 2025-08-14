@@ -1,4 +1,3 @@
-
 /* ========= WORKOUTTRACKER DATA LAYER ========= */
 /* Adjust SELECTORS to match your DOM. Keep names if they already exist. */
 const SELECTORS = {

@@ -1,1 +1,188 @@
-console.log("data.js loaded ✅");
+/* ========= WORKOUTTRACKER DATA LAYER ========= */
+/* Adjust SELECTORS to match your DOM. Keep names if they already exist. */
+const SELECTORS = {
+  // Workout session
+  startBtn:     '#startWorkout',     // optional: a "Start" button if you have one
+  doneBtn:      '#markDone',         // your "Mark Workout Done" button
+  titleInput:   '#workoutTitle',     // optional <input> for session title
+  status:       '#msg',              // feedback line (you already have #msg)
+
+  // Exercise rows (used when pressing "Mark Done")
+  row:          '[data-exercise]',   // one element per exercise
+  nameFrom:     r => r.dataset.exercise || r.querySelector('.exercise-name')?.textContent?.trim(),
+  doneFrom:     r => r.querySelector('input.done, input[type=checkbox].done'),
+  repsFrom:     r => r.querySelector('input.reps, .reps'),
+  weightFrom:   r => r.querySelector('input.weight, .weight'),
+  unitFrom:     r => r.querySelector('select.unit, .unit'),
+  notesFrom:    r => r.querySelector('textarea.notes, .notes'),
+
+  // Bodyweight
+  amInput:      '#amWeight',
+  amSave:       '#saveAm',
+  pmInput:      '#pmWeight',
+  pmSave:       '#savePm',
+  unitBW:       '#bwUnit',           // optional select ('kg'|'lb')
+
+  // Graph containers (optional – if you want to redraw)
+  graphVolume:  '#graph-volume',
+  graphBW:      '#graph-bw',
+
+  // History (optional simple list)
+  history:      '#history'
+};
+
+/* ---------- helpers ---------- */
+const statusEl = () => document.querySelector(SELECTORS.status);
+const setMsg   = (t) => { const el = statusEl(); if (el) el.textContent = t; };
+
+function nowDay(atMs){ return new Date(atMs).toISOString().slice(0,10); }
+function num(n){ const x = Number(n); return Number.isFinite(x) ? x : null; }
+
+/* Keep current workout id across reloads */
+const SESSION_KEY = 'currentWorkoutId';
+function setCurrentId(id){ id ? localStorage.setItem(SESSION_KEY,id) : localStorage.removeItem(SESSION_KEY); }
+function getCurrentId(){ return localStorage.getItem(SESSION_KEY) || null; }
+
+/* ---------- API ---------- */
+async function api(path, opts={}) {
+  const r = await fetch(path, { headers:{'content-type':'application/json'}, ...opts });
+  if (!r.ok) throw Object.assign(new Error('HTTP '+r.status), {status:r.status, body:await r.text().catch(()=>null)});
+  const ct = r.headers.get('content-type')||''; 
+  return ct.includes('application/json') ? r.json() : r.text();
+}
+
+async function startWorkout(title, notes){
+  const res = await api('/api/workouts', { method:'POST', body: JSON.stringify({ title, notes }) });
+  setCurrentId(res.id);
+  return res;
+}
+async function addSets(sets) {
+  sets = Array.isArray(sets) ? sets : [sets];
+  await api('/api/sets', { method:'POST', body: JSON.stringify(sets) });
+}
+async function finalizeWorkout(id, patch={}) {
+  const res = await api(`/api/workouts/${id}`, { method:'PUT', body: JSON.stringify({ ended:true, ...patch }) });
+  setCurrentId(null);
+  return res;
+}
+async function listWorkouts(limit=50){ return api(`/api/workouts?limit=${limit}`); }
+async function getWorkout(id){ return api(`/api/workouts/${id}`); }
+async function saveWeighIn(tod, weight, unit){
+  const at = Date.now();
+  return api('/api/weighins', { method:'POST', body: JSON.stringify({ tod, weight:Number(weight), unit, at }) });
+}
+async function getWeighIns(days=90){ return api(`/api/weighins?days=${days}`); }
+async function getStats(days=60){ return api(`/api/stats/overview?days=${days}`); }
+
+/* ---------- collect sets from UI when marking done ---------- */
+function collectDoneSets(workoutId){
+  const rows = document.querySelectorAll(SELECTORS.row);
+  const out = [];
+  let idx = 1;
+  rows.forEach(r => {
+    const done = SELECTORS.doneFrom(r);
+    if (done && done.checked) {
+      out.push({
+        workout_id: workoutId,
+        exercise:   SELECTORS.nameFrom(r) || 'Exercise',
+        kind:       'resistance',
+        set_index:  idx++,
+        reps:       num(SELECTORS.repsFrom(r)?.value),
+        weight:     num(SELECTORS.weightFrom(r)?.value),
+        unit:       (SELECTORS.unitFrom(r)?.value || 'kg'),
+        notes:      SELECTORS.notesFrom(r)?.value || ''
+      });
+    }
+  });
+  return out;
+}
+
+/* ---------- wire UI events ---------- */
+async function handleStart(){
+  const title = document.querySelector(SELECTORS.titleInput)?.value?.trim() || '';
+  setMsg('Starting workout…');
+  const w = await startWorkout(title || null);
+  setMsg('Workout started ✔');
+  return w;
+}
+
+async function handleDone(){
+  const id = getCurrentId();
+  const title = document.querySelector(SELECTORS.titleInput)?.value?.trim() || undefined;
+  if (!id){ 
+    // No active id: start + instantly finalize with collected rows
+    const w = await handleStart();
+    await saveSetsAndFinalize(w.id, title);
+    return;
+  }
+  await saveSetsAndFinalize(id, title);
+}
+
+async function saveSetsAndFinalize(id, title){
+  setMsg('Saving sets…');
+  const sets = collectDoneSets(id);
+  if (sets.length) await addSets(sets);
+  setMsg('Finalizing…');
+  await finalizeWorkout(id, { title });
+  setMsg('Workout saved ✔');
+  await refreshHistoryAndGraphs();
+}
+
+/* Weigh-in buttons */
+async function handleWeighSave(tod){
+  const unit = document.querySelector(SELECTORS.unitBW)?.value || 'kg';
+  const input = tod==='AM' ? document.querySelector(SELECTORS.amInput)
+                           : document.querySelector(SELECTORS.pmInput);
+  const w = input?.value;
+  if (!w){ setMsg(`Enter ${tod} weight first`); return; }
+  setMsg(`Saving ${tod} weight…`);
+  await saveWeighIn(tod, w, unit);
+  setMsg(`${tod} weight saved ✔`);
+  input.value = '';
+  await refreshHistoryAndGraphs();
+}
+
+/* ---------- history & graphs (minimal placeholders) ---------- */
+async function refreshHistoryAndGraphs(){
+  // Simple history list (optional)
+  const histEl = document.querySelector(SELECTORS.history);
+  if (histEl){
+    const list = await listWorkouts(20);
+    histEl.innerHTML = `<h3>Recent</h3><ul>${
+      list.map(w => `<li>${new Date(w.ended_at ?? w.started_at).toLocaleString()} — ${w.title ?? ''} (${w.total_sets||0} sets)</li>`).join('')
+    }</ul>`;
+  }
+
+  // Stats for graphs—hand to your existing chart code here
+  const stats = await getStats(60); // {byDay, bodyweight}
+  // Example hooks: window.updateVolumeChart(stats.byDay); window.updateBWChart(stats.bodyweight);
+  if (typeof window.updateVolumeChart === 'function') window.updateVolumeChart(stats.byDay);
+  if (typeof window.updateBWChart === 'function') window.updateBWChart(stats.bodyweight);
+}
+
+/* ---------- bootstrap ---------- */
+function boot(){
+  const startBtn = document.querySelector(SELECTORS.startBtn);
+  const doneBtn  = document.querySelector(SELECTORS.doneBtn);
+  const amBtn    = document.querySelector(SELECTORS.amSave);
+  const pmBtn    = document.querySelector(SELECTORS.pmSave);
+
+  startBtn && startBtn.addEventListener('click', async (e)=>{ e.preventDefault(); try{
+    startBtn.disabled = true; await handleStart(); await refreshHistoryAndGraphs();
+  } finally { startBtn.disabled = false; }});
+
+  doneBtn && doneBtn.addEventListener('click', async (e)=>{ e.preventDefault(); try{
+    doneBtn.disabled = true; await handleDone();
+  } finally { doneBtn.disabled = false; }});
+
+  amBtn && amBtn.addEventListener('click', async (e)=>{ e.preventDefault(); await handleWeighSave('AM'); });
+  pmBtn && pmBtn.addEventListener('click', async (e)=>{ e.preventDefault(); await handleWeighSave('PM'); });
+
+  // resume existing session if any (e.g., you started at the gym on phone)
+  if (getCurrentId()){ setMsg('Active workout in progress…'); }
+
+  refreshHistoryAndGraphs().catch(()=>{});
+}
+window.addEventListener('load', boot);
+
+/* ========= END DATA LAYER ========= */

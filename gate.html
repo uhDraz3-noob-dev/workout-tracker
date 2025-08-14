@@ -1,6 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
+  <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
   <title>Enter PIN</title>
@@ -115,6 +116,9 @@
           <span id="ghost" class="ghost" aria-hidden="true"></span>
           <span id="caret" class="caret" aria-hidden="true"></span>
         </div>
+        <!-- Invisible Turnstile; it will run when needed -->
+<div id="cf-ts" class="cf-turnstile" data-sitekey="YOUR_TURNSTILE_SITE_KEY" data-size="invisible"></div>
+
         <button id="go" class="enter">ENTER</button>
       </div>
 

@@ -1,5 +1,4 @@
-/* ========= WORKOUTTRACKER DATA LAYER ========= */
-/* Adjust SELECTORS to match your DOM. Keep names if they already exist. */
+
 const SELECTORS = {
   // Workout session
   startBtn:     '#startWorkout',     // optional: a "Start" button if you have one

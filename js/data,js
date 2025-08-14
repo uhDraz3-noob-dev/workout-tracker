@@ -1,4 +1,4 @@
-<script>
+
 /* ========= WORKOUTTRACKER DATA LAYER ========= */
 /* Adjust SELECTORS to match your DOM. Keep names if they already exist. */
 const SELECTORS = {
@@ -187,5 +187,6 @@ function boot(){
 window.addEventListener('load', boot);
 
 /* ========= END DATA LAYER ========= */
-</script>
+
+
 

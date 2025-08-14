@@ -1,7 +1,9 @@
 <!doctype html>
 <html lang="en">
 <head>
+  <!-- Turnstile loader -->
   <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
   <title>Enter PIN</title>
@@ -59,18 +61,16 @@
       overflow:hidden;
     }
 
-    /* IMPORTANT: left-align actual input, hide its text & caret; we'll render bullets ourselves */
+    /* Hide real glyphs/caret; we draw bullets and caret ourselves */
     .input{
       width:100%; background:transparent; border:0; outline:none;
-      font-size:18px; letter-spacing:.12em; color:transparent;   /* hide real glyphs */
+      font-size:18px; letter-spacing:.12em; color:transparent;
       padding:12px var(--padX);
-      caret-color:transparent; text-align:left;                  /* terminal-like */
+      caret-color:transparent; text-align:left;
     }
-    /* If you ever add a placeholder, keep it centered when empty */
     .input::placeholder{ color:rgba(230,237,243,.35); text-align:center; }
-    .input:placeholder-shown ~ .ghost{ display:none; }           /* hide ghost when empty */
+    .input:placeholder-shown ~ .ghost{ display:none; }
 
-    /* The visible, measured bullets that mirror the input’s value */
     .ghost{
       position:absolute; top:50%; left:var(--padX); transform:translateY(-50%);
       font:inherit; letter-spacing:.12em; white-space:pre; pointer-events:none;
@@ -80,7 +80,7 @@
     .caret{
       position:absolute; top:50%; transform:translateY(-50%);
       height:1.15em; width:0.6ch; background:var(--accent);
-      left:var(--padX); /* start at padding-left; JS moves it */
+      left:var(--padX);
       box-shadow:0 0 14px rgba(0,255,127,.45);
       animation: blink 1.05s steps(1,end) infinite;
       pointer-events:none;
@@ -112,12 +112,9 @@
         <div class="field">
           <input id="pin" class="input" type="password" inputmode="numeric" pattern="[0-9]*"
                  autocomplete="off" autofocus />
-          <!-- NEW: visible bullets we can measure -->
           <span id="ghost" class="ghost" aria-hidden="true"></span>
           <span id="caret" class="caret" aria-hidden="true"></span>
         </div>
-        <!-- Invisible Turnstile; it will run when needed -->
-<div id="cf-ts" class="cf-turnstile" data-sitekey="YOUR_TURNSTILE_SITE_KEY" data-size="invisible"></div>
 
         <button id="go" class="enter">ENTER</button>
       </div>
@@ -126,6 +123,13 @@
     </div>
   </div>
 
+  <!-- Turnstile widget moved OUT of the grid and hidden off-screen to avoid layout shift -->
+  <div id="cf-ts"
+       class="cf-turnstile"
+       data-sitekey="YOUR_TURNSTILE_SITE_KEY"
+       data-size="invisible"
+       style="position:absolute; left:-9999px; top:auto; width:1px; height:1px; overflow:hidden;"></div>
+
 <script>
   const pinEl = document.getElementById("pin");
   const caret = document.getElementById("caret");
@@ -133,7 +137,7 @@
   const goBtn = document.getElementById("go");
   const msg   = document.getElementById("msg");
 
-  // ----- caret sync (keep) -----
+  // ----- caret sync -----
   function placeCaret() {
     const val = pinEl.value || "";
     ghost.textContent = "•".repeat(val.length);
@@ -155,7 +159,7 @@
   window.addEventListener("load", placeCaret);
   window.addEventListener("resize", placeCaret);
 
-  // ----- get Turnstile token when needed -----
+  // ----- Turnstile token helper -----
   async function getTurnstileToken() {
     const widget = document.getElementById("cf-ts");
     if (!window.turnstile || !widget) return "";
@@ -178,46 +182,4 @@
     });
   }
 
-  // ----- submit with rate-limit/backoff awareness -----
-  async function submit(e){
-    if (e) e.preventDefault();
-    const pin = (pinEl.value||"").trim();
-    if(!pin){ msg.textContent = "Please enter your PIN."; pinEl.focus(); return; }
-
-    goBtn.disabled = true; msg.textContent = "";
-
-    const turnstileToken = await getTurnstileToken();
-
-    try{
-      const r = await fetch("/api/login", {
-        method:"POST",
-        headers:{ "content-type":"application/json" },
-        body: JSON.stringify({ pin, turnstileToken })
-      });
-
-      if(r.ok){ location.replace("/"); return; }
-
-      let data = {};
-      try { data = await r.json(); } catch {}
-      if (r.status === 429 && data?.retryAfter) {
-        msg.textContent = `Too many attempts. Try again in ${data.retryAfter}s.`;
-      } else if (data?.reason === "challenge") {
-        msg.textContent = "Please complete the challenge and try again.";
-      } else {
-        msg.textContent = "Invalid PIN.";
-      }
-
-      goBtn.disabled = false;
-      pinEl.select(); placeCaret();
-    } catch {
-      msg.textContent = "Network error. Try again.";
-      goBtn.disabled = false;
-    }
-  }
-
-  goBtn.addEventListener("click", submit);
-  pinEl.addEventListener("keydown", (e)=>{ if(e.key==="Enter") submit(e); });
-</script>
-
-</body>
-</html>
+  // ----- submit: try fa

@@ -72,7 +72,7 @@ async function saveWeighIn(tod, weight, unit){
   return api('/api/weighins', { method:'POST', body: JSON.stringify({ tod, weight:Number(weight), unit, at }) });
 }
 async function getWeighIns(days=90){ return api(`/api/weighins?days=${days}`); }
-async function getStats(days=60){ return api(`/api/stats/overview?days=${days}`); }
+async function getStats(days=60){ return api(`/api/stats?days=${days}`); }
 
 /* ---------- collect sets from UI when marking done ---------- */
 function collectDoneSets(workoutId){

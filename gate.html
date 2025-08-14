@@ -169,7 +169,7 @@
         if(r.ok){
           location.replace("/");
         }else{
-          msg.textContent = "Incorrect PIN.";
+          msg.textContent = "Access Denied.";
           goBtn.disabled = false;
           pinEl.select(); placeCaret();
         }

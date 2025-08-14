@@ -1,18 +1,12 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta
-  name="viewport"
-  content="width=device-width, initial-scale=1, viewport-fit=cover"
-/>
-<title>Training Dashboard — 12-Month Concurrent</title>
-<link rel="stylesheet" href="style.css">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Training Dashboard — 12-Month Concurrent</title>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-
-
   <div id="app" class="wrap">
     <aside class="aside">
       <button class="btn tab active" data-tab="home">Home</button>
@@ -21,51 +15,38 @@
       <button class="btn tab" data-tab="profile">Profile</button>
       <button class="btn tab" data-tab="builder">Builder</button>
 
-
       <div class="smallmut" style="margin-top:18px">Units</div>
       <div class="row" style="margin-top:6px">
         <button id="unit-lb" class="btn small active">lb</button>
         <button id="unit-kg" class="btn small">kg</button>
       </div>
     </aside>
-    <main class="content" id="content">
-	<main class="content" id="content">
-  <section id="welcome" class="card" style="display:none;">
-    <h2 id="greet"></h2>
-    <div class="row" style="margin-top:8px;">
-      <button id="btnTrack" class="btn">Track Workouts</button>
-      <button id="btnOther" class="btn"></button> <!-- intentionally blank -->
-    </div>
-  </section>
-  <!-- your other sections/tabs can remain; they'll show after you navigate -->
-</main>
 
-	</main>
+    <!-- SINGLE main -->
+    <main class="content" id="content">
+      <section id="welcome" class="card" style="display:none;">
+        <h2 id="greet"></h2>
+        <div class="row" style="margin-top:8px;">
+          <button id="btnTrack" class="btn">Track Workouts</button>
+          <button id="btnOther" class="btn"></button>
+        </div>
+      </section>
+
+      <!-- Status line the data layer uses -->
+      <div id="msg" class="smallmut" style="margin-top:10px;"></div>
+    </main>
   </div>
 
+  <!-- Toast (one copy) -->
   <div id="toast" class="toast"></div>
 
-  <!-- Modal -->
-  <div id="dayModalOverlay" class="modalOverlay">
+  <!-- Day detail modal (one copy) -->
+  <div id="dayModalOverlay" class="modalOverlay" style="display:none;">
     <div id="dayModal" class="modal"></div>
   </div>
 
-<script src="app.js"></script>
-  
-<!-- Toast (if you don’t already have it) -->
-<div id="toast" class="toast"></div>
-
-<!-- Day detail modal for Program page -->
-<div id="dayModalOverlay" class="modalOverlay" style="display:none;">
-  <div id="dayModal" class="modal"></div>
-</div>
-<script src="/js/data.js?v=1" defer></script>
-
+  <!-- Load app code first, then data layer -->
+  <script src="/app.js" defer></script>
+  <script src="/js/data.js?v=2" defer></script>
 </body>
 </html>
-
-
-
-
-
-
